@@ -1,91 +1,92 @@
 ﻿using System;
 using System.Collections.Generic;
+using Microsoft.Data.SqlClient;
 using System.Linq;
 using System.Windows.Forms;
 using RestaurantManagementSystem.Entities;
 
 namespace RestaurantManagementSystem.WinForms
 {
-    public partial class Login : Form // Class name changed to Login
+    public partial class Login : Form
     {
         private List<User> users;
+        private readonly string connectionString = "Server=.;Database=RestourantManagementSystemDb;Trusted_Connection=True;TrustServerCertificate=True;";
 
-        public Login() // Constructor name changed to Login to match the class name
+        public Login()
         {
             InitializeComponent();
             InitializeUsers();
-            checkShowPassword.CheckedChanged += new EventHandler(ShowPassword); // Attach ShowPassword event
-            btnLogin.Click += new EventHandler(button1_Click); // Attach Login button click event
-            btnCancel.Click += new EventHandler(btnCancel_Click); // Attach Cancel button click event
+            checkShowPassword.CheckedChanged += ShowPassword;
+            btnLogin.Click += button1_Click;
+            btnCancel.Click += btnCancel_Click;
         }
 
         private void InitializeUsers()
         {
-            users = new List<User>
+            users = new List<User>();
+
+            using (SqlConnection connection = new SqlConnection(connectionString))
             {
-                new User("admin", "admin123", "Admin"),
-                new User("user1", "password1"),
-                new User("user2", "password2")
-            };
+                string query = "SELECT Id, Username, Password, Role FROM Users";
+                SqlCommand command = new SqlCommand(query, connection);
+
+                try
+                {
+                    connection.Open();
+                    using (SqlDataReader reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            int id = reader.GetInt32(0);
+                            string username = reader.GetString(1);
+                            string password = reader.GetString(2);
+                            string role = reader.GetString(3);
+
+                            users.Add(new User(id, username, password, role));
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Database connection error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
-            string username = txtUsername.Text.Trim(); // Assuming txtUsername is the TextBox for username
-            string password = txtPassword.Text;        // Assuming txtPassword is the TextBox for password
+            string username = txtUsername.Text.Trim();
+            string password = txtPassword.Text;
 
-            try
+            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
             {
-                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
-                {
-                    MessageBox.Show("Please enter both username and password.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-
-                User authenticatedUser = users.FirstOrDefault(u => u.Username == username && u.Password == password);
-
-                if (authenticatedUser != null)
-                {
-                    MessageBox.Show("Login successful!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    // Proceed to main application form
-                    // Example: new MainForm().Show(); this.Hide();
-                }
-                else
-                {
-                    MessageBox.Show("Invalid username or password.", "Login Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
+                MessageBox.Show("Please enter both username and password.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
 
-        // ShowPassword method to toggle password visibility
-        private void ShowPassword(object sender, EventArgs e)
-        {
-            if (checkShowPassword.Checked)
+            User authenticatedUser = users.FirstOrDefault(u => u.Username == username && u.Password == password);
+
+            if (authenticatedUser != null)
             {
-                txtPassword.PasswordChar = '\0'; // Show password
+                MessageBox.Show("Login successful!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             else
             {
-                txtPassword.PasswordChar = '*'; // Mask password again
+                MessageBox.Show("Invalid username or password.", "Login Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        // Cancel button click event to clear username and password fields
+        private void ShowPassword(object sender, EventArgs e)
+        {
+            txtPassword.PasswordChar = checkShowPassword.Checked ? '\0' : '*';
+        }
+
         private void btnCancel_Click(object sender, EventArgs e)
         {
             txtUsername.Clear();
             txtPassword.Clear();
-            checkShowPassword.Checked = false; // Uncheck Show Password if it's checked
-            txtPassword.PasswordChar = '*'; // Reset the password mask
-        }
-
-        private void button2_Click(object sender, EventArgs e)
-        {
-            // Additional button functionality if needed
+            checkShowPassword.Checked = false;
+            txtPassword.PasswordChar = '*';
         }
     }
 }
